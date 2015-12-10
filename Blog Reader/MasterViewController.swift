@@ -17,6 +17,71 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        let appDel: AppDelegate = UIApplication.sharedApplication().delegate as! AppDelegate
+        let context: NSManagedObjectContext = appDel.managedObjectContext
+        
+        let url = NSURL(string: "https://www.googleapis.com/blogger/v3/blogs/10861780/posts?key=AIzaSyAFZQ2C65U-wkrX64UK48Q5WbGWXFZ-fKY")
+        let session = NSURLSession.sharedSession()
+        let urlRequest = NSURLRequest(URL: url!)
+        let dataTask = session.dataTaskWithRequest(urlRequest) { (data, response, error) -> Void in
+            guard error == nil else {
+                print(error)
+                return
+            }
+            guard let data = data else {
+                print("No Data Avaible")
+                return
+            }
+            //print(NSString(data: data, encoding: NSUTF8StringEncoding))
+            do {
+                let JSONResult = try NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions.MutableContainers) as! NSDictionary
+                if JSONResult.count > 0 {
+                    guard let items = JSONResult["items"] as? NSArray else {
+                        print("No items in this Blog")
+                        return
+                    }
+                    for item in items {
+                        print(items.count)
+                        let request = NSFetchRequest(entityName: "BlogItems")
+                        request.returnsObjectsAsFaults = false
+                        do {
+                            let results = try context.executeFetchRequest(request)
+                            if results.count > 0 {
+                                for result in results {
+                                    context.deleteObject(result as! NSManagedObject)
+                                    do {
+                                        try context.save()
+                                    } catch {
+                                        print("Cannot save context in AppDelegate")
+                                    }
+                                }
+                            }
+                        } catch {
+                            print("Error with Fetch Request")
+                        }
+                        
+                        guard let title = item["title"] as? String else {
+                            print("No items in this title for this item")
+                            return
+                        }
+                        guard let content = item["content"] as? String else {
+                            print("No content for the item \(title)")
+                            return
+                        }
+                        let newPost : NSManagedObject = NSEntityDescription.insertNewObjectForEntityForName("BlogItems", inManagedObjectContext: context)
+                        newPost.setValue(title, forKey: "title")
+                        newPost.setValue(content, forKey: "content")
+                    }
+                }
+            } catch {
+                print("Cannot Serialize your JSON Data")
+            }
+        }
+        dataTask.resume()
+        
+        
+        
         // Do any additional setup after loading the view, typically from a nib.
         self.navigationItem.leftBarButtonItem = self.editButtonItem()
 
@@ -36,26 +101,6 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
-    }
-
-    func insertNewObject(sender: AnyObject) {
-        let context = self.fetchedResultsController.managedObjectContext
-        let entity = self.fetchedResultsController.fetchRequest.entity!
-        let newManagedObject = NSEntityDescription.insertNewObjectForEntityForName(entity.name!, inManagedObjectContext: context)
-             
-        // If appropriate, configure the new managed object.
-        // Normally you should use accessor methods, but using KVC here avoids the need to add a custom class to the template.
-        newManagedObject.setValue(NSDate(), forKey: "timeStamp")
-             
-        // Save the context.
-        do {
-            try context.save()
-        } catch {
-            // Replace this implementation with code to handle the error appropriately.
-            // abort() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-            //print("Unresolved error \(error), \(error.userInfo)")
-            abort()
-        }
     }
 
     // MARK: - Segues
@@ -112,7 +157,7 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
 
     func configureCell(cell: UITableViewCell, atIndexPath indexPath: NSIndexPath) {
         let object = self.fetchedResultsController.objectAtIndexPath(indexPath)
-        cell.textLabel!.text = object.valueForKey("timeStamp")!.description
+        cell.textLabel!.text = object.valueForKey("title")!.description
     }
 
     // MARK: - Fetched results controller
@@ -124,14 +169,14 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
         
         let fetchRequest = NSFetchRequest()
         // Edit the entity name as appropriate.
-        let entity = NSEntityDescription.entityForName("Event", inManagedObjectContext: self.managedObjectContext!)
+        let entity = NSEntityDescription.entityForName("BlogItems", inManagedObjectContext: self.managedObjectContext!)
         fetchRequest.entity = entity
         
         // Set the batch size to a suitable number.
         fetchRequest.fetchBatchSize = 20
         
         // Edit the sort key as appropriate.
-        let sortDescriptor = NSSortDescriptor(key: "timeStamp", ascending: false)
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: false)
         
         fetchRequest.sortDescriptors = [sortDescriptor]
         
