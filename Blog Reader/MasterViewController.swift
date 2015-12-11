@@ -41,8 +41,6 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
                         print("No items in this Blog")
                         return
                     }
-                    for item in items {
-                        print(items.count)
                         let request = NSFetchRequest(entityName: "BlogItems")
                         request.returnsObjectsAsFaults = false
                         do {
@@ -59,8 +57,8 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
                             }
                         } catch {
                             print("Error with Fetch Request")
-                        }
-                        
+                    }
+                        for item in items {
                         guard let title = item["title"] as? String else {
                             print("No items in this title for this item")
                             return
